@@ -7,13 +7,13 @@ pipeline {
 
     stages {
         // ---------- CI ----------
-        stage('GIT') {
+        stage('CI - GIT') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Compile') {
+        stage('CI - Compile') {
             steps {
                 dir('backend') {
                     sh 'mvn -B clean compile'
@@ -21,7 +21,7 @@ pipeline {
             }
         }
 
-        stage('SonarQube') {
+        stage('CI - SonarQube') {
             steps {
                 dir('backend') {
                     withSonarQubeEnv('SonarQube') {
@@ -34,7 +34,7 @@ pipeline {
             }
         }
 
-        stage('Tests') {
+        stage('CI - Tests') {
             steps {
                 dir('backend') {
                     sh 'mvn -B test'
@@ -42,7 +42,7 @@ pipeline {
             }
         }
 
-        stage('Package') {
+        stage('CI - Package') {
             steps {
                 dir('backend') {
                     sh 'mvn -B package -DskipTests'
@@ -51,13 +51,13 @@ pipeline {
         }
 
         // ---------- CD ----------
-        stage('Build Images') {
+        stage('CD - Build Images') {
             steps {
                 sh 'docker compose build'
             }
         }
 
-        stage('Push DockerHub') {
+        stage('CD - Push DockerHub') {
             steps {
                 withCredentials([usernamePassword(
                         credentialsId: 'dockerhub-credentials',
@@ -69,7 +69,7 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('CD - Deploy') {
             steps {
                 sh 'docker compose up -d'
             }
