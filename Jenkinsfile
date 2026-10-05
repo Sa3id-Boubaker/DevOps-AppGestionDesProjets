@@ -6,72 +6,71 @@ pipeline {
     }
 
     stages {
-        // ---------- CI ----------
-        stage('CI - GIT') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('CI - Compile') {
-            steps {
-                dir('backend') {
-                    sh 'mvn -B clean compile'
-                }
-            }
-        }
-
-        stage('CI - SonarQube') {
-            steps {
-                dir('backend') {
-                    withSonarQubeEnv('SonarQube') {
-                        sh 'mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar -Dsonar.projectKey=Gestion-Projets'
+        stage('CI') {
+            stages {
+                stage('GIT') {
+                    steps {
+                        checkout scm
                     }
                 }
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                stage('Compile') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn -B clean compile'
+                        }
+                    }
+                }
+                stage('SonarQube') {
+                    steps {
+                        dir('backend') {
+                            withSonarQubeEnv('SonarQube') {
+                                sh 'mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar -Dsonar.projectKey=Gestion-Projets'
+                            }
+                        }
+                        timeout(time: 5, unit: 'MINUTES') {
+                            waitForQualityGate abortPipeline: true
+                        }
+                    }
+                }
+                stage('Tests') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn -B test'
+                        }
+                    }
+                }
+                stage('Package') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn -B package -DskipTests'
+                        }
+                    }
                 }
             }
         }
-
-        stage('CI - Tests') {
-            steps {
-                dir('backend') {
-                    sh 'mvn -B test'
+        stage('CD') {
+            stages {
+                stage('Build Images') {
+                    steps {
+                        sh 'docker compose build'
+                    }
                 }
-            }
-        }
-
-        stage('CI - Package') {
-            steps {
-                dir('backend') {
-                    sh 'mvn -B package -DskipTests'
+                stage('Push DockerHub') {
+                    steps {
+                        withCredentials([usernamePassword(
+                                credentialsId: 'dockerhub-credentials',
+                                usernameVariable: 'HUB_USER',
+                                passwordVariable: 'HUB_PASS')]) {
+                            sh 'echo $HUB_PASS | docker login -u $HUB_USER --password-stdin'
+                            sh 'docker compose push backend frontend'
+                        }
+                    }
                 }
-            }
-        }
-
-        // ---------- CD ----------
-        stage('CD - Build Images') {
-            steps {
-                sh 'docker compose build'
-            }
-        }
-
-        stage('CD - Push DockerHub') {
-            steps {
-                withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'HUB_USER',
-                        passwordVariable: 'HUB_PASS')]) {
-                    sh 'echo $HUB_PASS | docker login -u $HUB_USER --password-stdin'
-                    sh 'docker compose push backend frontend'
+                stage('Deploy') {
+                    steps {
+                        sh 'docker compose up -d'
+                    }
                 }
-            }
-        }
-
-        stage('CD - Deploy') {
-            steps {
-                sh 'docker compose up -d'
             }
         }
     }
@@ -82,3 +81,4 @@ pipeline {
         }
     }
 }
+                                                                                                   
