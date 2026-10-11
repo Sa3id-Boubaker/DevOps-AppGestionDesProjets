@@ -50,9 +50,9 @@ pipeline {
         }
         stage('CD') {
             stages {
-                stage('Build Images') {
+                stage('Build Image') {
                     steps {
-                        sh 'docker compose build'
+                        sh 'docker compose -p gestion-projets build backend'
                     }
                 }
                 stage('Push DockerHub') {
@@ -62,13 +62,14 @@ pipeline {
                                 usernameVariable: 'HUB_USER',
                                 passwordVariable: 'HUB_PASS')]) {
                             sh 'echo $HUB_PASS | docker login -u $HUB_USER --password-stdin'
-                            sh 'docker compose push backend frontend'
+                            sh 'docker compose -p gestion-projets push backend'
                         }
                     }
                 }
                 stage('Deploy') {
                     steps {
-                        sh 'docker compose up -d'
+                        sh 'docker compose -p gestion-projets up -d backend'
+                        sh 'docker restart gp-frontend || true'
                     }
                 }
             }
@@ -81,4 +82,3 @@ pipeline {
         }
     }
 }
-                                                                                                   
