@@ -1,0 +1,76 @@
+pipeline {
+    agent any
+
+    environment {
+        TAG = "${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('CI') {
+            stages {
+                stage('GIT') {
+                    steps {
+                        checkout scm
+                    }
+                }
+                stage('Install') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npm ci'
+                        }
+                    }
+                }
+                stage('Build') {
+                    steps {
+                        dir('frontend') {
+                            sh 'npx ng build --configuration production'
+                        }
+                    }
+                }
+                stage('SonarQube') {
+                    environment {
+                        SCANNER_HOME = tool 'SonarScanner'
+                    }
+                    steps {
+                        dir('frontend') {
+                            withSonarQubeEnv('SonarQube') {
+                                sh '$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=Gestion-Projets-Front -Dsonar.projectName=frontend -Dsonar.sources=src "-Dsonar.exclusions=**/*.spec.ts" -Dsonar.qualitygate.wait=true'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('CD') {
+            stages {
+                stage('Build Image') {
+                    steps {
+                        sh 'docker compose -p gestion-projets build frontend'
+                    }
+                }
+                stage('Push DockerHub') {
+                    steps {
+                        withCredentials([usernamePassword(
+                                credentialsId: 'dockerhub-credentials',
+                                usernameVariable: 'HUB_USER',
+                                passwordVariable: 'HUB_PASS')]) {
+                            sh 'echo $HUB_PASS | docker login -u $HUB_USER --password-stdin'
+                            sh 'docker compose -p gestion-projets push frontend'
+                        }
+                    }
+                }
+                stage('Deploy') {
+                    steps {
+                        sh 'docker compose -p gestion-projets up -d --no-deps frontend'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker logout || true'
+        }
+    }
+}
