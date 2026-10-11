@@ -20,6 +20,13 @@ pipeline {
                         }
                     }
                 }
+                stage('Tests') {
+                    steps {
+                        dir('backend') {
+                            sh 'mvn -B test'
+                        }
+                    }
+                }
                 stage('SonarQube') {
                     steps {
                         dir('backend') {
@@ -29,13 +36,6 @@ pipeline {
                         }
                         timeout(time: 5, unit: 'MINUTES') {
                             waitForQualityGate abortPipeline: true
-                        }
-                    }
-                }
-                stage('Tests') {
-                    steps {
-                        dir('backend') {
-                            sh 'mvn -B test'
                         }
                     }
                 }
